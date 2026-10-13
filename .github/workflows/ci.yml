@@ -52,4 +52,13 @@ jobs:
       - run: cargo build --release --workspace
       - run: cargo test --release --workspace --lib
       - run: cargo test --release --workspace --doc
+      - name: Timer precision on this runner
+        if: always()
+        run: |
+          ./target/release/diapason server --listen 127.0.0.1:18080 --workers 8 --threads 2 &
+          sleep 1
+          ./target/release/diapason run --url http://127.0.0.1:18080/ --rate 2000 --duration 4s \
+            --threads 2 --connections 64 --seed 1 --quiet --summary lag.json || true
+          python3 -c "import json; s=json.load(open('lag.json')); l=next(p for p in s['phases'] if p['measured'])['latency']['generator_lag']; print('::notice title=generator lag (ms)::p50 %.3f p90 %.3f p99 %.3f max %.3f, exit %d' % (l['p50_ms'], l['p90_ms'], l['p99_ms'], l['max_ms'], s['exit_code']))"
+          kill %1 || true
       - run: ./target/release/diapason selftest
