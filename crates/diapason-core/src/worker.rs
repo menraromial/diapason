@@ -15,7 +15,7 @@ use crate::protocol::{
 use crate::schedule::{Arrivals, RateProfile};
 use crate::stats::{Job, PhaseCounters, Stats, WindowMsg, NO_CONN};
 use crate::template::ScenarioPicker;
-use crate::timer::{reduce_timer_slack, Timer};
+use crate::timer::{tune_thread_timers, Timer};
 use crate::trace::TraceSink;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
@@ -726,7 +726,7 @@ pub fn run_worker<P: Protocol>(setup: WorkerSetup<P>) -> WorkerFinal {
     if let Some(cpu) = setup.pin {
         pin_to_cpu(cpu);
     }
-    let _ = reduce_timer_slack();
+    let _ = tune_thread_timers();
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build();

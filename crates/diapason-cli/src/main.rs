@@ -611,7 +611,10 @@ fn cmd_selftest(a: SelftestArgs) -> ExitCode {
     if m.success != m.completed {
         problems.push(format!("{} non-success responses", m.completed - m.success));
     }
-    if problems.is_empty() && summary.exit_code == 0 {
+    if summary.exit_code != 0 {
+        problems.push(summary.exit_reason.clone());
+    }
+    if problems.is_empty() {
         println!("selftest: ok");
         ExitCode::SUCCESS
     } else {
