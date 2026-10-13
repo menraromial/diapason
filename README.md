@@ -245,14 +245,16 @@ Each worker waits until `timer.spin` (default 100 µs) before the next
 intended time, then yields to its runtime in a loop until the intended time,
 so that responses are still processed during the spin. On Linux the wait uses
 a `timerfd` armed with an absolute deadline, and the worker's timer slack is
-set to 1 ns. Elsewhere it sleeps on tokio's timer (1 ms resolution) until
-3 ms before that point and spins from there, which costs up to 3 ms of CPU
-per wait; the workers run at the user-interactive quality of service on
-macOS. `DIAPASON_PORTABLE_TIMER=1` selects this path on Linux too (generator
-lag of 4 to 5 µs at p99 in the selftest). On a macOS CI machine, tokio's sleep
-woke more than 1.2 ms late for 1 % of the waits, and a timer thread waiting
-on a condition variable woke 6 ms late at p90, which is why this path keeps a
-wide margin. Requests
+set to 1 ns. On macOS it waits on its own kqueue, armed with a nanosecond
+`EVFILT_TIMER` marked `NOTE_CRITICAL` so that the kernel does not coalesce
+it, and the workers run at the user-interactive quality of service. Elsewhere
+it sleeps on tokio's timer (1 ms resolution) until 1.5 ms before that point
+and spins from there, which costs up to 1.5 ms of CPU per wait;
+`DIAPASON_PORTABLE_TIMER=1` selects this path on Linux and macOS too. On a
+3-CPU macOS CI machine running both the client and the reference server,
+tokio's sleep with a 1.1 ms margin gave a generator lag of 1.2 ms at p99; a
+3 ms margin made it 11.8 ms, because the spinning workers starved the server
+and each other. Requests
 whose intended time has already passed are dispatched at once, yielding to
 the connections every 32 requests. The lag that remains is measured per
 request. When intended times are closer together than `spin` (above 10 000
