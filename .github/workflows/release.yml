@@ -1,11 +1,19 @@
 name: Release
 
-# Builds the binaries on every push, so that a broken target shows before a
-# release; publishes a GitHub release with them when the push is a v* tag.
+# On main, builds the binaries when the code or the packaging changes, so
+# that a broken target shows before a release. A v* tag always builds and
+# publishes the release (GitHub does not apply path filters to tags).
 on:
   push:
     branches: [main]
     tags: ["v*"]
+    paths:
+      - "crates/**"
+      - Cargo.toml
+      - Cargo.lock
+      - install.sh
+      - .github/workflows/release.yml
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always

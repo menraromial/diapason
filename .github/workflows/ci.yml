@@ -1,8 +1,20 @@
 name: CI
 
+# Runs only when the Rust code or this workflow changes; the documentation
+# and the release tooling have their own workflows.
 on:
   push:
+    paths:
+      - "crates/**"
+      - Cargo.toml
+      - Cargo.lock
+      - .github/workflows/ci.yml
   pull_request:
+    paths:
+      - "crates/**"
+      - Cargo.toml
+      - Cargo.lock
+      - .github/workflows/ci.yml
 
 env:
   CARGO_TERM_COLOR: always
