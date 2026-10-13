@@ -45,6 +45,7 @@
 
 pub mod clock;
 pub mod config;
+pub mod dtr;
 pub mod duration;
 pub mod hist;
 pub mod host;

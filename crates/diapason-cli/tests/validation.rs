@@ -1493,3 +1493,61 @@ fn m4_agent_lost() {
         s["exit_reason"]
     );
 }
+
+/// The binary columnar trace holds the same requests as the CSV trace of a
+/// run with the same seed, and `diapason trace` converts it back to CSV.
+#[test]
+fn binary_trace() {
+    let _g = serial();
+    let srv = Server::start(&["--workers", "4", "--service", "exp:1ms", "--threads", "2"]);
+    let (csv, dtr, back) = (tmp("bt.csv"), tmp("bt.dtr"), tmp("bt.back.csv"));
+    let args = |trace: &PathBuf| {
+        vec![
+            "--url".to_string(),
+            srv.url.clone(),
+            "--rate".into(),
+            "3000".into(),
+            "--arrival".into(),
+            "poisson".into(),
+            "--duration".into(),
+            "2s".into(),
+            "--threads".into(),
+            "3".into(),
+            "--connections".into(),
+            "30".into(),
+            "--seed".into(),
+            "20".into(),
+            "--trace".into(),
+            trace.display().to_string(),
+        ]
+    };
+    let a: Vec<String> = args(&csv);
+    let o1 = run("bt_csv", &a.iter().map(String::as_str).collect::<Vec<_>>());
+    let a: Vec<String> = args(&dtr);
+    let o2 = run("bt_dtr", &a.iter().map(String::as_str).collect::<Vec<_>>());
+    assert_conserved(&o2.summary);
+    let out = Command::new(BIN)
+        .args(["trace", dtr.to_str().unwrap(), "-o", back.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let rows = trace_seq(std::slice::from_ref(&back));
+    assert_eq!(
+        rows.len() as u64,
+        u(&o2.summary["conservation"]["scheduled"])
+    );
+    assert_eq!(rows, trace_seq(&[csv]));
+    let _ = o1;
+    // Completed requests have every timestamp and a status.
+    let text = std::fs::read_to_string(&back).unwrap();
+    let completed = text
+        .lines()
+        .skip(1)
+        .filter(|l| l.ends_with(',') && l.split(',').filter(|f| f.is_empty()).count() == 1)
+        .count() as u64;
+    assert_eq!(completed, u(&o2.summary["conservation"]["completed"]));
+}

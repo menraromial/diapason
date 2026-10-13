@@ -32,6 +32,17 @@ enum Cmd {
     Selftest(SelftestArgs),
     /// Serve a coordinator (`diapason run --agents ...`) on this client node.
     Agent(AgentArgs),
+    /// Convert a binary trace (.dtr) to CSV.
+    Trace(TraceArgs),
+}
+
+#[derive(Args)]
+struct TraceArgs {
+    /// The binary trace.
+    input: PathBuf,
+    /// CSV output, compressed with zstd when it ends in .zst; default stdout.
+    #[arg(long, short)]
+    output: Option<PathBuf>,
 }
 
 #[derive(Args)]
@@ -613,6 +624,44 @@ fn cmd_selftest(a: SelftestArgs) -> ExitCode {
     }
 }
 
+fn cmd_trace(a: TraceArgs) -> ExitCode {
+    use diapason_core::dtr;
+    let run = || -> std::io::Result<u64> {
+        let mut input = std::io::BufReader::new(std::fs::File::open(&a.input)?);
+        let mut out: Box<dyn Write> = match &a.output {
+            None => Box::new(std::io::BufWriter::new(std::io::stdout().lock())),
+            Some(p) if p.extension().is_some_and(|e| e == "zst") => Box::new(
+                zstd::stream::write::Encoder::new(std::fs::File::create(p)?, 3)?.auto_finish(),
+            ),
+            Some(p) => Box::new(std::io::BufWriter::new(std::fs::File::create(p)?)),
+        };
+        writeln!(out, "{}", dtr::COLUMNS.join(","))?;
+        let mut err = None;
+        let n = dtr::read(&mut input, |r| {
+            if err.is_none() {
+                if let Err(e) = dtr::write_csv_record(&mut *out, r) {
+                    err = Some(e);
+                }
+            }
+        })?;
+        if let Some(e) = err {
+            return Err(e);
+        }
+        out.flush()?;
+        Ok(n)
+    };
+    match run() {
+        Ok(n) => {
+            eprintln!("{n} rows");
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("diapason trace: {}: {e}", a.input.display());
+            ExitCode::from(exit::RUNTIME as u8)
+        }
+    }
+}
+
 fn cmd_agent(a: AgentArgs) -> ExitCode {
     let skew = (a.clock_skew_ms * 1e6) as i64;
     let r = diapason_core::serve_agent(&a.listen, HttpProtocol::from_config, skew, |addr| {
@@ -642,5 +691,6 @@ fn main() -> ExitCode {
         Cmd::Server(a) => cmd_server(*a),
         Cmd::Selftest(a) => cmd_selftest(a),
         Cmd::Agent(a) => cmd_agent(a),
+        Cmd::Trace(a) => cmd_trace(a),
     }
 }

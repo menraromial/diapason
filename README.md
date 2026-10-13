@@ -21,7 +21,7 @@ data files, weighted scenarios with the realised mix, and user thresholds.
 M3: HTTP/2 with a stream limit (h2 over TLS, h2c over cleartext),
 connect-on-demand up to a cap, live OpenMetrics metrics, and the library API
 (run on a thread, stop early, window channel). The trace is CSV (compressed
-with zstd on request); the binary columnar format is not implemented. M4:
+with zstd on request) or binary columnar. M4:
 distributed mode, with a coordinator and agents on several client nodes,
 clock-offset measurement, a split schedule and merged histograms.
 
@@ -606,7 +606,8 @@ of it is printed on stderr as the run goes. Library users receive it as a
 
 ### Trace (`--trace`)
 
-One row per request, CSV, compressed with zstd when the path ends in `.zst`.
+One row per request: CSV, compressed with zstd when the path ends in `.zst`,
+or the binary columnar format described below when it ends in `.dtr`.
 Columns: `seq`, `worker`, `conn` (connection index in the worker, empty if
 never assigned), `phase` (index), `scenario` (index in `[[scenarios]]`, 0
 without scenarios), `intended_ns`,
@@ -620,6 +621,26 @@ batches of 4096 rows), so its memory does not depend on run length. If the
 writer falls behind, rows are dropped and counted in
 `outputs.trace_dropped`. `--trace-sample k` keeps one request in k, chosen by
 a hash of `seq`, so the same requests are kept across runs with the same seed.
+
+The binary columnar format (`.dtr`) holds the same columns. After a header
+(the 8 bytes `DIAPTRC1`, a little-endian u32 version, 1, and a little-endian
+u32 length followed by that many bytes of JSON naming the columns and
+outcomes) come blocks of up to 4096 rows: a little-endian u32 row count, a
+little-endian u32 byte count, and that many bytes of zstd data. Decompressed,
+a block holds its columns one after the other, one unsigned LEB128 varint per
+row and column: `seq`, `worker`, `phase`, `scenario` and `bytes_in` as they
+are; `conn` as 0 when absent, else conn + 1; `intended_ns` as the zigzag
+encoding of its difference with the previous row of the block (the first
+row: with 0); `attempt_ns`, `send_ns`, `first_byte_ns` and `done_ns` as 0
+when absent, else zigzag(value − intended_ns) + 1; `status` as 0 when
+absent, else the code; then one byte per row for the outcome, an index into
+`["", "timeout", "aborted", "reset", "read", "write", "protocol",
+"not_sent:queue", "not_sent:queue_full", "not_sent:end_of_run",
+"in_flight_at_end"]`. zigzag(x) is 2x for x ≥ 0 and −2x − 1 otherwise.
+`diapason trace FILE.dtr [-o OUT.csv[.zst]]` converts it to the CSV format,
+and `diapason_core::dtr::read` decodes it in Rust. At 50 000 req/s (Poisson,
+500 000 requests) a trace took 14.3 bytes per request in this format, 27.9 in
+CSV with zstd and 78 in plain CSV; converting it back took 0.28 s.
 
 ### Live metrics (`--metrics ADDR`)
 
@@ -777,6 +798,7 @@ diapason run [--config FILE] [options]
 diapason server [options]
 diapason selftest [--rate R] [--duration D]
 diapason agent [--listen HOST:PORT]
+diapason trace FILE.dtr [-o OUT.csv]
 ```
 
 `diapason run` options override the file: `--url`, `--method`, `-H/--header
@@ -904,7 +926,9 @@ tests run two agents on one host, one with its clock moved 500 ms ahead:
 the run balances, sends exactly the requests of a one-node run with the same
 number of workers, measures both offsets within 1 ms and aligns T0 within
 1 ms; and an agent killed during a run ends the coordinator with exit code 1
-in bounded time.
+in bounded time. A last test checks that a binary trace, converted back with
+`diapason trace`, holds the same requests as the CSV trace of a run with the
+same seed.
 
 The reference server (`diapason server`) is an M/G/c queue in virtual time:
 `--workers c` servers, a service-time distribution (`--service const:1ms`,

@@ -1,5 +1,6 @@
 //! The per-request trace: CSV, compressed with zstd when the path ends in
-//! ".zst". Workers hand batches of rows to a writer thread through a bounded
+//! ".zst", or the binary columnar format of [`crate::dtr`] when it ends in
+//! ".dtr". Workers hand batches of rows to a writer thread through a bounded
 //! channel; rows that do not fit are dropped and counted.
 
 use std::fs::File;
@@ -83,32 +84,47 @@ pub struct TraceWriter {
     sample: u64,
 }
 
-fn opt<W: Write + ?Sized>(w: &mut W, v: Option<u64>) -> io::Result<()> {
-    match v {
-        Some(x) => write!(w, "{x},"),
-        None => w.write_all(b","),
+impl TraceRow {
+    fn record(&self) -> crate::dtr::TraceRecord {
+        crate::dtr::TraceRecord {
+            seq: self.seq,
+            worker: self.worker,
+            conn: (self.conn != crate::stats::NO_CONN).then_some(self.conn),
+            phase: self.phase,
+            scenario: self.scenario,
+            intended_ns: self.intended,
+            attempt_ns: self.attempt,
+            send_ns: self.send,
+            first_byte_ns: self.first_byte,
+            done_ns: self.done,
+            status: self.status,
+            bytes_in: self.bytes_in,
+            outcome: self.outcome,
+        }
     }
 }
 
-fn write_rows(rx: Receiver<Vec<TraceRow>>, out: &mut dyn Write) -> io::Result<u64> {
+fn write_csv(rx: Receiver<Vec<TraceRow>>, out: &mut dyn Write) -> io::Result<u64> {
     writeln!(out, "{HEADER}")?;
     let mut n = 0u64;
     for batch in rx {
         for r in &batch {
-            write!(out, "{},{},", r.seq, r.worker)?;
-            if r.conn == crate::stats::NO_CONN {
-                out.write_all(b",")?;
-            } else {
-                write!(out, "{},", r.conn)?;
-            }
-            write!(out, "{},{},{},", r.phase, r.scenario, r.intended)?;
-            opt(out, r.attempt)?;
-            opt(out, r.send)?;
-            opt(out, r.first_byte)?;
-            opt(out, r.done)?;
-            opt(out, r.status.map(u64::from))?;
-            writeln!(out, "{},{}", r.bytes_in, r.outcome)?;
+            crate::dtr::write_csv_record(out, &r.record())?;
         }
+        n += batch.len() as u64;
+    }
+    Ok(n)
+}
+
+/// The binary columnar format: one block per batch.
+fn write_dtr(rx: Receiver<Vec<TraceRow>>, out: &mut impl Write) -> io::Result<u64> {
+    crate::dtr::write_header(out)?;
+    let mut n = 0u64;
+    let mut recs = Vec::with_capacity(BATCH);
+    for batch in rx {
+        recs.clear();
+        recs.extend(batch.iter().map(TraceRow::record));
+        crate::dtr::write_block(out, &recs)?;
         n += batch.len() as u64;
     }
     Ok(n)
@@ -117,20 +133,26 @@ fn write_rows(rx: Receiver<Vec<TraceRow>>, out: &mut dyn Write) -> io::Result<u6
 impl TraceWriter {
     pub fn create(path: &Path, sample: u64) -> io::Result<TraceWriter> {
         let file = File::create(path)?;
-        let zst = path.extension().map(|e| e == "zst").unwrap_or(false);
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let (zst, dtr) = (ext == "zst", ext == "dtr");
         let (tx, rx) = sync_channel::<Vec<TraceRow>>(CHANNEL_BATCHES);
         let handle = std::thread::Builder::new()
             .name("diapason-trace".into())
             .spawn(move || -> io::Result<u64> {
                 let buffered = BufWriter::with_capacity(1 << 20, file);
-                if zst {
+                if dtr {
+                    let mut w = buffered;
+                    let n = write_dtr(rx, &mut w)?;
+                    w.flush()?;
+                    Ok(n)
+                } else if zst {
                     let mut enc = zstd::stream::write::Encoder::new(buffered, 3)?;
-                    let n = write_rows(rx, &mut enc)?;
+                    let n = write_csv(rx, &mut enc)?;
                     enc.finish()?.flush()?;
                     Ok(n)
                 } else {
                     let mut w = buffered;
-                    let n = write_rows(rx, &mut w)?;
+                    let n = write_csv(rx, &mut w)?;
                     w.flush()?;
                     Ok(n)
                 }
