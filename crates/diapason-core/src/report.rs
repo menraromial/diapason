@@ -163,6 +163,12 @@ pub fn text(s: &Summary) -> String {
             );
         }
     }
+    let busiest = s
+        .workers
+        .iter()
+        .map(|w| w.busy_share)
+        .fold(0.0f64, f64::max);
+    let _ = writeln!(out, "  busiest worker: {:.1} % busy", busiest * 100.0);
     if !s.thresholds.is_empty() {
         let _ = writeln!(out, "thresholds:");
         for t in &s.thresholds {
@@ -177,12 +183,6 @@ pub fn text(s: &Summary) -> String {
             );
         }
     }
-    let busiest = s
-        .workers
-        .iter()
-        .map(|w| w.busy_share)
-        .fold(0.0f64, f64::max);
-    let _ = writeln!(out, "  busiest worker: {:.1} % busy", busiest * 100.0);
     for w in &s.warnings {
         let _ = writeln!(out, "warning: {w}");
     }
