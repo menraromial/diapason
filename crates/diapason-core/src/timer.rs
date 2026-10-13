@@ -3,20 +3,20 @@
 //! tokio's timer has a 1 ms resolution. On Linux the worker waits on a
 //! timerfd armed with an absolute CLOCK_MONOTONIC deadline, which has
 //! nanosecond resolution. Elsewhere (and on Linux when the environment
-//! variable `DIAPASON_PORTABLE_TIMER` is set to a non-empty value) one process-wide thread keeps a
-//! heap of deadlines, sleeps on a condition variable with a nanosecond
-//! timeout and wakes the waiting worker. In both cases the caller spins
-//! (yielding) for the remainder.
+//! variable `DIAPASON_PORTABLE_TIMER` is set to a non-empty value) it sleeps
+//! on tokio's timer until `PORTABLE_EARLY` before the deadline. In both cases
+//! the caller spins (yielding) for the remainder.
+//!
+//! On a macOS CI machine, tokio's sleep (kevent) woke more than 1.2 ms late
+//! for 1 % of the waits, and a condition variable with a nanosecond timeout
+//! woke 6 ms late at p90; hence a generous early margin rather than a timer
+//! thread.
 
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
-use std::future::Future;
 use std::io;
-use std::pin::Pin;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex, OnceLock};
-use std::task::{Context, Poll, Waker};
 use std::time::Duration;
+
+/// How long before the deadline the portable timer returns.
+pub const PORTABLE_EARLY: Duration = Duration::from_millis(3);
 
 #[cfg(target_os = "linux")]
 mod fd {
@@ -89,122 +89,10 @@ mod fd {
     }
 }
 
-/// One waiter's registration with the timer thread. Arming it again with
-/// the same deadline adds nothing to the heap, and entries whose slot was
-/// re-armed since are dropped without waking anyone.
-#[derive(Default)]
-pub(crate) struct Slot {
-    deadline: AtomicU64,
-    waker: Mutex<Option<Waker>>,
-}
-
-struct Entry {
-    deadline: u64,
-    slot: Arc<Slot>,
-}
-
-impl PartialEq for Entry {
-    fn eq(&self, o: &Self) -> bool {
-        self.deadline == o.deadline
-    }
-}
-impl Eq for Entry {}
-impl PartialOrd for Entry {
-    fn partial_cmp(&self, o: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(o))
-    }
-}
-impl Ord for Entry {
-    fn cmp(&self, o: &Self) -> std::cmp::Ordering {
-        self.deadline.cmp(&o.deadline)
-    }
-}
-
-#[derive(Default)]
-struct Wheel {
-    heap: Mutex<BinaryHeap<Reverse<Entry>>>,
-    cv: Condvar,
-}
-
-fn wheel() -> &'static Wheel {
-    static WHEEL: OnceLock<&'static Wheel> = OnceLock::new();
-    WHEEL.get_or_init(|| {
-        let w: &'static Wheel = Box::leak(Box::default());
-        std::thread::Builder::new()
-            .name("diapason-timer".into())
-            .spawn(move || run_wheel(w))
-            .expect("timer thread");
-        w
-    })
-}
-
-fn run_wheel(w: &'static Wheel) {
-    let _ = tune_thread_timers();
-    let mut due = Vec::new();
-    let mut heap = w.heap.lock().unwrap();
-    loop {
-        let now = crate::clock::raw_now_ns();
-        while heap.peek().is_some_and(|e| e.0.deadline <= now) {
-            let e = heap.pop().unwrap().0;
-            if e.slot.deadline.load(Ordering::Acquire) == e.deadline {
-                due.push(e.slot);
-            }
-        }
-        if !due.is_empty() {
-            drop(heap);
-            for slot in due.drain(..) {
-                if let Some(wk) = slot.waker.lock().unwrap().take() {
-                    wk.wake();
-                }
-            }
-            heap = w.heap.lock().unwrap();
-            continue;
-        }
-        let next = heap.peek().map(|e| e.0.deadline);
-        heap = match next {
-            None => w.cv.wait(heap).unwrap(),
-            Some(d) => {
-                w.cv.wait_timeout(heap, Duration::from_nanos(d - now))
-                    .unwrap()
-                    .0
-            }
-        };
-    }
-}
-
-struct WheelSleep<'a> {
-    deadline: u64,
-    slot: &'a Arc<Slot>,
-}
-
-impl Future for WheelSleep<'_> {
-    type Output = ();
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
-        if crate::clock::raw_now_ns() >= self.deadline {
-            return Poll::Ready(());
-        }
-        *self.slot.waker.lock().unwrap() = Some(cx.waker().clone());
-        if self.slot.deadline.swap(self.deadline, Ordering::AcqRel) != self.deadline {
-            let w = wheel();
-            let mut heap = w.heap.lock().unwrap();
-            let earliest = heap.peek().is_none_or(|e| self.deadline < e.0.deadline);
-            heap.push(Reverse(Entry {
-                deadline: self.deadline,
-                slot: self.slot.clone(),
-            }));
-            drop(heap);
-            if earliest {
-                w.cv.notify_one();
-            }
-        }
-        Poll::Pending
-    }
-}
-
 pub enum Timer {
     #[cfg(target_os = "linux")]
     Fd(fd::FdTimer),
-    Thread(Arc<Slot>),
+    Portable,
 }
 
 impl Timer {
@@ -213,16 +101,21 @@ impl Timer {
         if std::env::var_os("DIAPASON_PORTABLE_TIMER").is_none_or(|v| v.is_empty()) {
             return Ok(Timer::Fd(fd::FdTimer::new()?));
         }
-        Ok(Timer::Thread(Arc::new(Slot::default())))
+        Ok(Timer::Portable)
     }
 
-    /// Returns at or shortly after the raw monotonic time `deadline`.
+    /// Returns at or shortly after the raw monotonic time `deadline` (Linux),
+    /// or up to `PORTABLE_EARLY` before it (portable).
     pub async fn wait_until(&self, deadline: u64) -> io::Result<()> {
         match self {
             #[cfg(target_os = "linux")]
             Timer::Fd(t) => t.wait_until(deadline).await,
-            Timer::Thread(slot) => {
-                WheelSleep { deadline, slot }.await;
+            Timer::Portable => {
+                let now = crate::clock::raw_now_ns();
+                let early = deadline.saturating_sub(PORTABLE_EARLY.as_nanos() as u64);
+                if early > now {
+                    tokio::time::sleep(Duration::from_nanos(early - now)).await;
+                }
                 Ok(())
             }
         }
@@ -231,8 +124,8 @@ impl Timer {
 
 /// Makes the kernel wake the calling thread's timers on time: on Linux the
 /// timer slack drops to 1 ns (the default 50 µs would defer wake-ups); on
-/// macOS the thread gets the user-interactive quality of service, whose
-/// timers are not coalesced.
+/// macOS the thread gets the user-interactive quality of service, which
+/// lowers timer coalescing.
 pub fn tune_thread_timers() -> io::Result<()> {
     #[cfg(target_os = "linux")]
     {
@@ -253,39 +146,4 @@ pub fn tune_thread_timers() -> io::Result<()> {
         }
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The timer thread never wakes before the deadline, and wakes soon
-    /// after it. Precision depends on the machine (shared CI machines vary),
-    /// so only a loose bound is asserted.
-    #[test]
-    fn wheel_wakes_after_deadline() {
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let slot = Arc::new(Slot::default());
-        let mut late = rt.block_on(async {
-            let mut late = Vec::new();
-            for _ in 0..200 {
-                let d = crate::clock::raw_now_ns() + 1_000_000;
-                WheelSleep {
-                    deadline: d,
-                    slot: &slot,
-                }
-                .await;
-                let now = crate::clock::raw_now_ns();
-                assert!(now >= d, "woke {} ns early", d - now);
-                late.push(now - d);
-            }
-            late
-        });
-        late.sort_unstable();
-        let (p50, p90) = (late[100], late[180]);
-        assert!(p50 < 5_000_000, "lateness p50 {p50} ns, p90 {p90} ns");
-    }
 }
