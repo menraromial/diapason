@@ -30,6 +30,8 @@ const config: Config = {
     locales: ['en'],
   },
 
+  clientModules: [require.resolve('./src/fonts.ts')],
+
   presets: [
     [
       'classic',
@@ -57,6 +59,8 @@ const config: Config = {
       },
       items: [
         {type: 'docSidebar', sidebarId: 'docs', position: 'left', label: 'Documentation'},
+        {to: '/docs/guides/first-run', label: 'Guides', position: 'left'},
+        {to: '/docs/guides/cookbook', label: 'Cookbook', position: 'left'},
         {to: '/docs/installation', label: 'Install', position: 'left'},
         {
           href: 'https://github.com/menraromial/diapason/releases',
@@ -77,6 +81,8 @@ const config: Config = {
           title: 'Documentation',
           items: [
             {label: 'Introduction', to: '/docs/intro'},
+            {label: 'Your first run', to: '/docs/guides/first-run'},
+            {label: 'Cookbook', to: '/docs/guides/cookbook'},
             {label: 'Accounting model', to: '/docs/accounting-model'},
             {label: 'Outputs', to: '/docs/outputs'},
           ],
@@ -94,7 +100,7 @@ const config: Config = {
     },
     prism: {
       theme: prismThemes.github,
-      darkTheme: prismThemes.dracula,
+      darkTheme: prismThemes.oneDark,
       additionalLanguages: ['toml', 'rust', 'bash', 'json'],
     },
   } satisfies Preset.ThemeConfig,

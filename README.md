@@ -104,6 +104,8 @@ Each request has up to five timestamps:
 
 From them diapason derives four delays:
 
+![The four delays of a request](website/static/img/delays.svg)
+
 | delay | definition | whose delay |
 | --- | --- | --- |
 | generator lag | `attempt - intended` | the client's scheduling (timer precision, CPU) |

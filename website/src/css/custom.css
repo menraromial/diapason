@@ -1,26 +1,215 @@
+/* diapason documentation theme */
+
 :root {
-  --ifm-color-primary: #2e6f8e;
-  --ifm-color-primary-dark: #296480;
-  --ifm-color-primary-darker: #275e79;
-  --ifm-color-primary-darkest: #204e63;
-  --ifm-color-primary-light: #337a9c;
-  --ifm-color-primary-lighter: #3680a3;
-  --ifm-color-primary-lightest: #3f91b9;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-font-family-base: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --ifm-font-size-base: 16px;
+  --ifm-line-height-base: 1.7;
+  --ifm-heading-font-weight: 700;
+  --ifm-h1-font-size: 2.4rem;
+  --ifm-h2-font-size: 1.65rem;
+  --ifm-h3-font-size: 1.25rem;
+
+  --ifm-color-primary: #1f6f95;
+  --ifm-color-primary-dark: #1c6486;
+  --ifm-color-primary-darker: #1a5e7f;
+  --ifm-color-primary-darkest: #154d68;
+  --ifm-color-primary-light: #227aa4;
+  --ifm-color-primary-lighter: #2480ab;
+  --ifm-color-primary-lightest: #2a91c2;
+
+  --ifm-background-color: #ffffff;
+  --ifm-code-font-size: 88%;
+  --ifm-code-border-radius: 6px;
+  --ifm-code-padding-horizontal: 0.35rem;
+  --ifm-pre-border-radius: 10px;
+  --ifm-pre-padding: 1.1rem 1.2rem;
+  --ifm-navbar-height: 4rem;
+  --ifm-toc-border-color: transparent;
+  --ifm-table-border-color: #e3e8ee;
+  --ifm-table-head-background: #f4f7fa;
+  --ifm-table-stripe-background: #fafbfd;
+  --ifm-menu-link-padding-vertical: 0.4rem;
+  --ifm-footer-background-color: #0d1b2a;
+
+  --dp-accent: #e0a43a;
+  --dp-surface: #f6f8fb;
+  --dp-border: #e3e8ee;
+  --dp-muted: #5c6b7a;
+  --docusaurus-highlighted-code-line-bg: rgba(31, 111, 149, 0.12);
 }
 
 [data-theme='dark'] {
-  --ifm-color-primary: #6fb3d2;
-  --ifm-color-primary-dark: #55a5ca;
-  --ifm-color-primary-darker: #489ec6;
-  --ifm-color-primary-darkest: #3485ab;
-  --ifm-color-primary-light: #89c1da;
-  --ifm-color-primary-lighter: #96c8de;
-  --ifm-color-primary-lightest: #bcdcea;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --ifm-color-primary: #66b7dd;
+  --ifm-color-primary-dark: #4caad6;
+  --ifm-color-primary-darker: #3fa4d3;
+  --ifm-color-primary-darkest: #2b8bb8;
+  --ifm-color-primary-light: #80c4e4;
+  --ifm-color-primary-lighter: #8ccae7;
+  --ifm-color-primary-lightest: #b2dcf0;
+
+  --ifm-background-color: #0f1720;
+  --ifm-background-surface-color: #0f1720;
+  --ifm-table-border-color: #233040;
+  --ifm-table-head-background: #16212d;
+  --ifm-table-stripe-background: #121c27;
+  --ifm-footer-background-color: #0a1118;
+
+  --dp-surface: #16212d;
+  --dp-border: #233040;
+  --dp-muted: #9aa8b6;
+  --docusaurus-highlighted-code-line-bg: rgba(102, 183, 221, 0.15);
 }
 
-table {
-  font-size: 0.92rem;
+body {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Navbar */
+.navbar {
+  backdrop-filter: saturate(180%) blur(10px);
+  background-color: color-mix(in srgb, var(--ifm-background-color) 82%, transparent);
+  border-bottom: 1px solid var(--dp-border);
+  box-shadow: none;
+}
+
+.navbar__title {
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+
+/* Headings */
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  letter-spacing: -0.02em;
+}
+
+.markdown h2 {
+  margin-top: 2.6rem;
+  padding-top: 0.4rem;
+}
+
+.markdown h1:first-child {
+  margin-bottom: 1.4rem;
+}
+
+/* Content width and rhythm */
+.theme-doc-markdown {
+  max-width: 52rem;
+}
+
+.markdown > p,
+.markdown li {
+  color: color-mix(in srgb, var(--ifm-font-color-base) 90%, var(--dp-muted));
+}
+
+/* Tables */
+.markdown table {
+  display: table;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--dp-border);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.markdown table thead tr {
+  background: var(--ifm-table-head-background);
+}
+
+.markdown table th {
+  font-weight: 650;
+  text-align: left;
+}
+
+.markdown table th,
+.markdown table td {
+  border: none;
+  border-bottom: 1px solid var(--dp-border);
+  padding: 0.6rem 0.85rem;
+  vertical-align: top;
+}
+
+.markdown table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Code */
+code {
+  border: 1px solid var(--dp-border);
+  background: var(--dp-surface);
+}
+
+pre code,
+.prism-code code {
+  border: none;
+  background: transparent;
+}
+
+div[class*='codeBlockContainer'] {
+  border: 1px solid var(--dp-border);
+  box-shadow: 0 1px 2px rgba(15, 23, 32, 0.04);
+}
+
+div[class*='codeBlockTitle'] {
+  font-size: 0.82rem;
+  font-family: var(--ifm-font-family-monospace);
+  color: var(--dp-muted);
+}
+
+/* Images in docs (the delays diagram) */
+.markdown img {
+  display: block;
+  margin: 1.2rem auto;
+  padding: 1rem;
+  border: 1px solid var(--dp-border);
+  border-radius: 12px;
+  background: var(--dp-surface);
+}
+
+/* Sidebar */
+.theme-doc-sidebar-menu {
+  font-size: 0.93rem;
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+  font-weight: 600;
+  background: color-mix(in srgb, var(--ifm-color-primary) 10%, transparent);
+}
+
+.menu__list-item-collapsible > .menu__link--sublist,
+.theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible > .menu__link {
+  font-weight: 650;
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  color: var(--dp-muted);
+}
+
+/* Table of contents */
+.table-of-contents__link {
+  font-size: 0.85rem;
+}
+
+/* Admonitions */
+.theme-admonition {
+  border-radius: 10px;
+}
+
+/* Footer */
+.footer--dark {
+  --ifm-footer-link-color: #b9c6d3;
+  --ifm-footer-title-color: #ffffff;
+}
+
+/* Show program output exactly: no ligatures such as "->" becoming an arrow. */
+code,
+pre,
+kbd {
+  font-variant-ligatures: none;
 }

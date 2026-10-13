@@ -57,7 +57,9 @@ for (const s of sections) {
       return !inFence && /^#{3,6} /.test(l) ? l.slice(1) : l;
     })
     .join('\n')
-    .trim();
+    .trim()
+    // Images of the site's static folder, referenced from the README.
+    .replaceAll('](website/static/', '](/');
   const front = `---\nid: ${id}\ntitle: ${JSON.stringify(s.title === 'Output' ? 'Outputs' : s.title)}\nsidebar_label: ${JSON.stringify(label)}\ncustom_edit_url: https://github.com/menraromial/diapason/blob/main/README.md\n---\n\n`;
   writeFileSync(join(docs, `${id}.md`), front + body + '\n');
 }

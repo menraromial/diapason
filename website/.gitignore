@@ -3,5 +3,15 @@
 /.docusaurus
 /.cache-loader
 # Generated from ../README.md by scripts/sync-readme.mjs
-/docs/*
-!/docs/intro.md
+/docs/status.md
+/docs/installation.md
+/docs/quick-start.md
+/docs/accounting-model.md
+/docs/fidelity-checks.md
+/docs/outputs.md
+/docs/configuration.md
+/docs/command-line.md
+/docs/library.md
+/docs/validation.md
+/docs/design-measurements.md
+/docs/license.md

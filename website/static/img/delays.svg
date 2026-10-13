@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 240" font-family="Inter, system-ui, sans-serif" font-size="14">
+  <title>The four delays of a request</title>
+  <!-- time axis -->
+  <line x1="30" y1="72" x2="770" y2="72" stroke="#8a97a6" stroke-width="2"/>
+  <polygon points="770,66 782,72 770,78" fill="#8a97a6"/>
+  <text x="782" y="98" fill="#8a97a6" text-anchor="end" font-size="12">time</text>
+  <!-- events -->
+  <g text-anchor="middle" font-weight="600" fill="#4d8db0">
+    <circle cx="50" cy="72" r="6" fill="#2e6f8e"/>
+    <text x="50" y="46">intended</text>
+    <circle cx="210" cy="72" r="6" fill="#2e6f8e"/>
+    <text x="210" y="46">attempt</text>
+    <circle cx="400" cy="72" r="6" fill="#2e6f8e"/>
+    <text x="400" y="46">send</text>
+    <circle cx="610" cy="72" r="6" fill="#2e6f8e"/>
+    <text x="610" y="46">first byte</text>
+    <circle cx="730" cy="72" r="6" fill="#2e6f8e"/>
+    <text x="730" y="46">done</text>
+  </g>
+  <!-- delays -->
+  <g stroke-width="10">
+    <line x1="50" y1="120" x2="210" y2="120" stroke="#e0a43a"/>
+    <line x1="210" y1="120" x2="400" y2="120" stroke="#c9663f"/>
+    <line x1="400" y1="120" x2="730" y2="120" stroke="#3f9c7a"/>
+    <line x1="50" y1="190" x2="730" y2="190" stroke="#6f7fd6"/>
+  </g>
+  <g text-anchor="middle" fill="#8a97a6" font-weight="600">
+    <text x="130" y="148">generator lag</text>
+    <text x="305" y="148">connection wait</text>
+    <text x="565" y="148">server time</text>
+    <text x="390" y="218">corrected latency</text>
+  </g>
+  <g text-anchor="middle" fill="#8a97a6" font-size="12">
+    <text x="130" y="165">client timer, CPU</text>
+    <text x="305" y="165">free connection or slot</text>
+    <text x="565" y="165">network and server</text>
+    <text x="390" y="234">what a user would have seen</text>
+  </g>
+</svg>
