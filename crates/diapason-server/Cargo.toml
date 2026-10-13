@@ -1,0 +1,23 @@
+[package]
+name = "diapason-server"
+description = "Reference server for testing the diapason load generator: an M/G/c queue in virtual time"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio.workspace = true
+bytes.workspace = true
+httparse.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+rand_distr.workspace = true
+libc.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+rustls.workspace = true
+tokio-rustls.workspace = true
+h2.workspace = true
+http.workspace = true
+rustls-pemfile.workspace = true

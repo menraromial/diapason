@@ -1,0 +1,43 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+rust-version = "1.88"
+
+[workspace.dependencies]
+diapason-core = { path = "crates/diapason-core" }
+diapason-proto-http = { path = "crates/diapason-proto-http" }
+diapason-server = { path = "crates/diapason-server" }
+tokio = { version = "1", features = ["rt", "net", "time", "io-util", "sync", "macros", "signal", "rt-multi-thread"] }
+hdrhistogram = "7.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+rand = "0.8"
+rand_chacha = "0.3"
+rand_distr = "0.4"
+libc = "0.2"
+bytes = "1"
+httparse = "1"
+url = "2"
+clap = { version = "4", features = ["derive"] }
+zstd = "0.13"
+thiserror = "2"
+anyhow = "1"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
+rustls-pemfile = "2"
+webpki-roots = "1"
+rcgen = "0.14"
+h2 = "0.4"
+base64 = "0.22"
+http = "1"
+
+[profile.release]
+debug = 1
+lto = "thin"
+codegen-units = 4

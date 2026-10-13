@@ -1,0 +1,28 @@
+[package]
+name = "diapason-cli"
+description = "Command-line interface of the diapason open-loop load generator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "diapason"
+path = "src/main.rs"
+
+[dependencies]
+diapason-core.workspace = true
+diapason-proto-http.workspace = true
+diapason-server.workspace = true
+clap.workspace = true
+toml.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+diapason-core.workspace = true
+diapason-proto-http.workspace = true
+hdrhistogram.workspace = true
+rcgen.workspace = true
+serde_json.workspace = true
+zstd.workspace = true
+libc.workspace = true

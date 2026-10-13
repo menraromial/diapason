@@ -1,0 +1,21 @@
+[package]
+name = "diapason-core"
+description = "Scheduling, accounting and fidelity core of the diapason load generator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tokio.workspace = true
+hdrhistogram.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+rand_distr.workspace = true
+libc.workspace = true
+zstd.workspace = true
+thiserror.workspace = true
+base64.workspace = true

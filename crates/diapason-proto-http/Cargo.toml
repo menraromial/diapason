@@ -1,0 +1,32 @@
+[package]
+name = "diapason-proto-http"
+description = "HTTP/1.1 protocol for the diapason load generator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+diapason-core.workspace = true
+tokio.workspace = true
+bytes.workspace = true
+httparse.workspace = true
+url.workspace = true
+rustls.workspace = true
+tokio-rustls.workspace = true
+h2.workspace = true
+http.workspace = true
+rustls-pemfile.workspace = true
+webpki-roots.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+diapason-server.workspace = true
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+libc.workspace = true
+bytes.workspace = true
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+monoio = { version = "0.2", features = ["iouring", "sync"] }
