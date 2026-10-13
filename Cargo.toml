@@ -6,6 +6,8 @@ members = ["crates/*"]
 version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/menraromial/diapason"
+homepage = "https://menraromial.github.io/diapason/"
 rust-version = "1.88"
 
 [workspace.dependencies]
@@ -41,3 +43,9 @@ http = "1"
 debug = 1
 lto = "thin"
 codegen-units = 4
+
+# Binaries for releases: no debug information.
+[profile.dist]
+inherits = "release"
+debug = false
+strip = true

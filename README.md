@@ -37,51 +37,28 @@ generator lag 21 µs at p99, corrected latency 73 µs at p50 and 3.2 ms at
 p99, busiest worker 45 % busy. The 16-core target of the design has not been
 measured on a dedicated client.
 
-## Design measurements
+## Installation
 
-The design left three choices to measurements, made on the machine above.
+On Linux (x86_64, aarch64) and macOS (Intel, Apple Silicon), install the
+latest release with:
 
-HTTP client. `cargo run --release -p diapason-proto-http --example
-client_overhead` drives 64 keep-alive connections in a closed loop from one
-current-thread runtime against the reference server. diapason's writer and
-parser cost 6.1 µs of client CPU per request (162 000 req/s on one thread);
-hyper 1.x's client connection API costs 8.8 µs (113 000 req/s), 44 % more,
-in 2 runs out of 2. hyper's HTTP/1 client also has no pipelining. diapason
-keeps its own writer and parser (`httparse` for the response head).
+```sh
+curl -fsSL https://raw.githubusercontent.com/menraromial/diapason/main/install.sh | sh
+```
 
-Runtime. `cargo run --release -p diapason-proto-http --example
-runtime_overhead` runs the same minimal client loop on tokio's current-thread
-runtime (epoll) and on monoio with io_uring: 6.0 µs against 5.56 µs of
-client CPU per request (166 000 against 179 000 req/s on one thread), 7 %
-less for io_uring. Work that io_uring hands to kernel threads is not counted
-in that CPU time. diapason stays on tokio: the gain is small, the throughput
-target is met, and io_uring would require owned buffers in the `Protocol`
-trait, another timer and another TLS integration, with no io_uring on macOS.
+The script downloads the archive for your system from the GitHub releases,
+checks its SHA-256 sum, and puts the `diapason` binary in `~/.local/bin`
+(`DIAPASON_INSTALL_DIR` changes the directory, `DIAPASON_VERSION=v0.1.0` picks
+a release). The Linux binaries are statically linked (musl). You can also
+download an archive from the
+[releases page](https://github.com/menraromial/diapason/releases), or build
+from source with Rust 1.88 or later:
 
-Comparison with wrk2 and Vegeta. `scripts/compare.py --wrk2 PATH --vegeta
-PATH` runs the three tools at 2000 req/s with 50 connections, first against
-a server that answers at once (each tool's own floor), then against an
-M/G/16 queue with exponential service times of mean 1 ms (capacity 16 000
-req/s). Corrected latency in ms, 2 and 3 runs:
+```sh
+cargo install --git https://github.com/menraromial/diapason diapason-cli
+```
 
-| server | tool | p50 | p99 | p99.9 |
-| --- | --- | --- | --- | --- |
-| instant | diapason | 0.13 to 0.14 | 0.21 to 0.28 | 0.28 to 0.33 |
-| instant | Vegeta 12 | 0.20 | 0.30 | 0.55 to 0.59 |
-| instant | wrk2 | 0.92 to 0.95 | 1.92 to 1.97 | 2.17 to 2.22 |
-| M/G/16 | diapason | 0.82 to 0.88 | 4.67 to 4.94 | 6.9 to 7.3 |
-| M/G/16 | Vegeta 12 | 0.93 to 0.94 | 4.93 to 4.95 | 7.3 to 7.6 |
-| M/G/16 | wrk2 | 1.68 to 1.69 | 5.60 to 5.69 | 7.7 to 8.0 |
-
-The quantiles do not agree within run-to-run noise. The differences between
-tools are close to the differences between their floors: wrk2 adds about
-0.8 ms everywhere, in line with the 1 ms resolution of its event loop's
-timers, and Vegeta about 0.07 to 0.1 ms. diapason's values match the queue:
-the median of an exponential of mean 1 ms is 0.69 ms and its 99th percentile
-4.61 ms, to which the 0.13 ms floor adds. wrk2 was built from
-github.com/giltene/wrk2 at its last commit; its embedded Lua bytecode had to
-be generated as a C file (`luajit -b src/wrk.lua obj/bytecode.c`) because the
-object file it produces is rejected by the current linker.
+The documentation is at <https://menraromial.github.io/diapason/>.
 
 ## Quick start
 
@@ -959,3 +936,55 @@ serve TLS, and `--tls-client-ca` requires client certificates signed by that
 CA. The server prints `listening
 ADDR (...)` on stdout when ready and its counters as JSON on stderr when it
 receives SIGINT or SIGTERM.
+
+## Design measurements
+
+The design left three choices to measurements, made on the machine above.
+
+HTTP client. `cargo run --release -p diapason-proto-http --example
+client_overhead` drives 64 keep-alive connections in a closed loop from one
+current-thread runtime against the reference server. diapason's writer and
+parser cost 6.1 µs of client CPU per request (162 000 req/s on one thread);
+hyper 1.x's client connection API costs 8.8 µs (113 000 req/s), 44 % more,
+in 2 runs out of 2. hyper's HTTP/1 client also has no pipelining. diapason
+keeps its own writer and parser (`httparse` for the response head).
+
+Runtime. `cargo run --release -p diapason-proto-http --example
+runtime_overhead` runs the same minimal client loop on tokio's current-thread
+runtime (epoll) and on monoio with io_uring: 6.0 µs against 5.56 µs of
+client CPU per request (166 000 against 179 000 req/s on one thread), 7 %
+less for io_uring. Work that io_uring hands to kernel threads is not counted
+in that CPU time. diapason stays on tokio: the gain is small, the throughput
+target is met, and io_uring would require owned buffers in the `Protocol`
+trait, another timer and another TLS integration, with no io_uring on macOS.
+
+Comparison with wrk2 and Vegeta. `scripts/compare.py --wrk2 PATH --vegeta
+PATH` runs the three tools at 2000 req/s with 50 connections, first against
+a server that answers at once (each tool's own floor), then against an
+M/G/16 queue with exponential service times of mean 1 ms (capacity 16 000
+req/s). Corrected latency in ms, 2 and 3 runs:
+
+| server | tool | p50 | p99 | p99.9 |
+| --- | --- | --- | --- | --- |
+| instant | diapason | 0.13 to 0.14 | 0.21 to 0.28 | 0.28 to 0.33 |
+| instant | Vegeta 12 | 0.20 | 0.30 | 0.55 to 0.59 |
+| instant | wrk2 | 0.92 to 0.95 | 1.92 to 1.97 | 2.17 to 2.22 |
+| M/G/16 | diapason | 0.82 to 0.88 | 4.67 to 4.94 | 6.9 to 7.3 |
+| M/G/16 | Vegeta 12 | 0.93 to 0.94 | 4.93 to 4.95 | 7.3 to 7.6 |
+| M/G/16 | wrk2 | 1.68 to 1.69 | 5.60 to 5.69 | 7.7 to 8.0 |
+
+The quantiles do not agree within run-to-run noise. The differences between
+tools are close to the differences between their floors: wrk2 adds about
+0.8 ms everywhere, in line with the 1 ms resolution of its event loop's
+timers, and Vegeta about 0.07 to 0.1 ms. diapason's values match the queue:
+the median of an exponential of mean 1 ms is 0.69 ms and its 99th percentile
+4.61 ms, to which the 0.13 ms floor adds. wrk2 was built from
+github.com/giltene/wrk2 at its last commit; its embedded Lua bytecode had to
+be generated as a C file (`luajit -b src/wrk.lua obj/bytecode.c`) because the
+object file it produces is rejected by the current linker.
+
+## License
+
+diapason is distributed under the terms of both the MIT license and the
+Apache License (Version 2.0), at your option. See `LICENSE-MIT` and
+`LICENSE-APACHE`.
