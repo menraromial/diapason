@@ -19,7 +19,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
       - run: cargo clippy --release --all-targets -- -D warnings
-      - run: cargo test --release --workspace --lib --bins --doc
+      - run: cargo test --release --workspace --lib --bins
+      - run: cargo test --release --workspace --doc
 
   validation:
     name: validation tests (reference server)
@@ -49,5 +50,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release --workspace
-      - run: cargo test --release --workspace --lib --doc
+      - run: cargo test --release --workspace --lib
+      - run: cargo test --release --workspace --doc
       - run: ./target/release/diapason selftest
