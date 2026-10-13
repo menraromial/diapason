@@ -1,0 +1,7 @@
+/node_modules
+/build
+/.docusaurus
+/.cache-loader
+# Generated from ../README.md by scripts/sync-readme.mjs
+/docs/*
+!/docs/intro.md
